@@ -7,6 +7,7 @@ package nomina;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -25,7 +26,8 @@ public class Nomina {
 
     static String titulos[];
     private static ArrayList<Empleado> empleados = new ArrayList<>();
-    static String path;
+    static File path;
+    static String archivo;
 
     private static void archivo() {
         try {
@@ -33,11 +35,12 @@ public class Nomina {
             JFileChooser chooser = new JFileChooser();
             chooser.setDialogTitle("Seleccione el directorio de Destino");
             chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            chooser.setCurrentDirectory(path);
             chooser.setAcceptAllFileFilterUsed(false);
             FileNameExtensionFilter filtro = new FileNameExtensionFilter("csv", "csv");
             chooser.setFileFilter(filtro);
             if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-                BufferedWriter salida = new BufferedWriter(new FileWriter(chooser.getSelectedFile().getAbsolutePath() + "/" + path));
+                BufferedWriter salida = new BufferedWriter(new FileWriter(chooser.getSelectedFile().getAbsolutePath() + "/" + archivo));
                 EmpleadoAsalariado ea;
                 EmpleadoXhora eh;
                 EmpleadoXComision ec;
@@ -101,7 +104,8 @@ public class Nomina {
                 String s;
                 String linea[];
                 BufferedReader lector = new BufferedReader(new FileReader(chooser.getSelectedFile()));
-                path = chooser.getName(chooser.getSelectedFile());
+                path = chooser.getCurrentDirectory();
+                archivo = chooser.getName(chooser.getSelectedFile());
                 titulos = lector.readLine().split(";");
                 while ((s = lector.readLine()) != null) {
                     contenido += s + "\n";
@@ -137,72 +141,275 @@ public class Nomina {
         return contenido;
     }
 
+    public static boolean nuevo() {
+        String tipos[] = {"Empleado Asalareado", "Empleado por Horas", "Empleado por Comisión", "Empleado por Comisión más sueldo Base"};
+        String nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
+        String apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
+        String nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+        String select = ((String) JOptionPane.showInputDialog(null, "<<SELECCIONE EL TIPO DE EMPLEADO>>", "Tipo de Empleado", JOptionPane.QUESTION_MESSAGE, null, tipos, tipos[0]));
+        switch (select) {
+            case "Empleado Asalareado":
+                double salario = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Sueldo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                return empleados.add(new EmpleadoAsalariado(nombre, apellido, nss, salario));
+            case "Empleado por Horas":
+                double valorHora = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Valor de la Hora de trabajo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                double horasTrabajadas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Número de Horas que el Empleado ha Trabajado"));
+                return empleados.add(new EmpleadoXhora(valorHora, horasTrabajadas, nombre, apellido, nss));
+            case "Empleado por Comisión":
+                double ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                String comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                if (comisionstr.contains("%")) {
+                    comisionstr = comisionstr.replace("%", "");
+                }
+                double comision = Double.parseDouble(comisionstr) / 100;
+                return empleados.add(new EmpleadoXComision(ventasBrutas, comision, nombre, apellido, nss));
+            case "Empleado por Comisión más sueldo Base":
+                ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                if (comisionstr.contains("%")) {
+                    comisionstr = comisionstr.replace("%", "");
+                }
+                comision = Double.parseDouble(comisionstr) / 100;
+                double base = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Salario base del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                return empleados.add(new EmpleadoXComisionMasBase(base, ventasBrutas, comision, nombre, apellido, nss));
+        }
+        return false;
+    }
+
+    public static String cargarEditar() {
+        EmpleadoAsalariado ea;
+        EmpleadoXhora eh;
+        EmpleadoXComision ec;
+        EmpleadoXComisionMasBase ecmb;
+        String nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+        String menu = "Modificar..\n0.- REGRESAR.\n1.- Nombre.\n2.- Apellido.\n3.- Número de Seguro Social.";
+        for (int i = 0; i < empleados.size(); i++) {
+            if (empleados.get(i).getNumeroSeguroSocial().equals(nss)) {
+                Empleado emp = empleados.get(i);
+                if (emp instanceof EmpleadoAsalariado) {
+                    ea = (EmpleadoAsalariado) emp;
+                    menu += "\n4.- Salario.";
+                    editar(menu, ea, i);
+                } else if (emp instanceof EmpleadoXhora) {
+                    eh = (EmpleadoXhora) emp;
+                    menu += "\n4.- Valor de la Hora.\n5.- Horas Trabajadas.";
+                    editar(menu, eh, i);
+                } else if (emp instanceof EmpleadoXComisionMasBase) {
+                    ecmb = (EmpleadoXComisionMasBase) emp;
+                    menu += "\n4.- Ventas Brutas.\n5.- Porcentaje de Comisión.\n7.- Salario Base.";
+                    editar(menu, ecmb, i);
+                } else if (emp instanceof EmpleadoXComision) {
+                    ec = (EmpleadoXComision) emp;
+                    menu += "\n4.- Ventas Brutas.\n5.- Porcentaje de Comisión.";
+                    editar(menu, ec, i);
+                }
+                break;
+            }
+        }
+
+        return menu;
+    }
+
+    private static void editar(String menu, Empleado emp, int posicion) {
+        String opt;
+        do {
+            opt = JOptionPane.showInputDialog(menu);
+            if (opt.equals("0")) {
+                break;
+            }
+            EmpleadoAsalariado ea;
+            EmpleadoXhora eh;
+            EmpleadoXComision ec;
+            EmpleadoXComisionMasBase ecmb;
+            String nombre = emp.getNombre();
+            String apellido = emp.getApellido();
+            String nss = emp.getNumeroSeguroSocial();
+            if (emp instanceof EmpleadoAsalariado) {
+                ea = (EmpleadoAsalariado) emp;
+                double salario = ea.getSalarioSemanal();
+                switch (opt) {
+                    case "1":
+                        nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
+                        break;
+                    case "2":
+                        apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
+                        break;
+                    case "3":
+                        nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+                        break;
+                    case "4":
+                        salario = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Salario del Empleado"));
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(null, "Ingrese una opción válida.", "Selección Incorrecta", JOptionPane.ERROR_MESSAGE);
+                }
+                ea = new EmpleadoAsalariado(nombre, apellido, nss, salario);
+                empleados.set(posicion, ea);
+            } else if (emp instanceof EmpleadoXhora) {
+                eh = (EmpleadoXhora) emp;
+                double valorHora = eh.getValorHora();
+                double horasTrabajadas = eh.getHorasTrabajadas();
+                switch (opt) {
+                    case "1":
+                        nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
+                        break;
+                    case "2":
+                        apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
+                        break;
+                    case "3":
+                        nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+                        break;
+                    case "4":
+                        valorHora = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Valor de la Hora de trabajo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                        break;
+                    case "5":
+                        horasTrabajadas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Número de Horas que el Empleado ha Trabajado"));
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(null, "Ingrese una opción válida.", "Selección Incorrecta", JOptionPane.ERROR_MESSAGE);
+                }
+                eh = new EmpleadoXhora(valorHora, horasTrabajadas, nombre, apellido, nss);
+                empleados.set(posicion, eh);
+
+            } else if (emp instanceof EmpleadoXComisionMasBase) {
+                ecmb = (EmpleadoXComisionMasBase) emp;
+                double comision = ecmb.getPorcentageComision();
+                double ventasBrutas = ecmb.getVentasBrutas();
+                double base = ecmb.getSalarioBase();
+                switch (opt) {
+                    case "1":
+                        nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
+                        break;
+                    case "2":
+                        apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
+                        break;
+                    case "3":
+                        nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+                        break;
+                    case "4":
+                        ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                        break;
+                    case "5":
+                        String comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                        if (comisionstr.contains("%")) {
+                            comisionstr = comisionstr.replace("%", "");
+                        }
+                        comision = Double.parseDouble(comisionstr) / 100;
+                        break;
+                    case "6":
+                        base = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Salario base del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(null, "Ingrese una opción válida.", "Selección Incorrecta", JOptionPane.ERROR_MESSAGE);
+                }
+                ecmb = new EmpleadoXComisionMasBase(base, ventasBrutas, comision, nombre, apellido, nss);
+                empleados.set(posicion, ecmb);
+
+            } else if (emp instanceof EmpleadoXComision) {
+                ec = (EmpleadoXComision) emp;
+                double comision = ec.getPorcentageComision();
+                double ventasBrutas = ec.getVentasBrutas();
+                switch (opt) {
+                    case "1":
+                        nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
+                        break;
+                    case "2":
+                        apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
+                        break;
+                    case "3":
+                        nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+                        break;
+                    case "4":
+                        ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                        break;
+                    case "5":
+                        String comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                        if (comisionstr.contains("%")) {
+                            comisionstr = comisionstr.replace("%", "");
+                        }
+                        comision = Double.parseDouble(comisionstr) / 100;
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(null, "Ingrese una opción válida.", "Selección Incorrecta", JOptionPane.ERROR_MESSAGE);
+                }
+                ec = new EmpleadoXComision(ventasBrutas, comision, nombre, apellido, nss);
+                empleados.set(posicion, ec);
+
+            }
+
+        } while (!opt.equals("0"));
+    }
+
+    public static Empleado editar() {
+        String nssb = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+        Empleado emp = null;
+        int pos = 0;
+        for (int i = 0; i < empleados.size(); i++) {
+            if (empleados.get(i).getNumeroSeguroSocial().equals(nssb)) {
+                emp = empleados.get(i);
+                pos = i;
+                break;
+            }
+        }
+        if (emp != null) {
+            String tipos[] = {"Empleado Asalareado", "Empleado por Horas", "Empleado por Comisión", "Empleado por Comisión más sueldo Base"};
+            String nombre = emp.getNombre();
+            String apellido = emp.getApellido();
+            String nss = emp.getNumeroSeguroSocial();
+            String select = ((String) JOptionPane.showInputDialog(null, "<<SELECCIONE EL NUEVO TIPO DE EMPLEADO>>", "Tipo de Empleado", JOptionPane.QUESTION_MESSAGE, null, tipos, tipos[0]));
+            switch (select) {
+                case "Empleado Asalareado":
+                    double salario = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Sueldo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                    return empleados.set(pos, new EmpleadoAsalariado(nombre, apellido, nss, salario));
+                case "Empleado por Horas":
+                    double valorHora = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Valor de la Hora de trabajo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                    double horasTrabajadas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Número de Horas que el Empleado ha Trabajado"));
+                    return empleados.set(pos, new EmpleadoXhora(valorHora, horasTrabajadas, nombre, apellido, nss));
+                case "Empleado por Comisión":
+                    double ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                    String comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                    if (comisionstr.contains("%")) {
+                        comisionstr = comisionstr.replace("%", "");
+                    }
+                    double comision = Double.parseDouble(comisionstr) / 100;
+                    return empleados.set(pos, new EmpleadoXComision(ventasBrutas, comision, nombre, apellido, nss));
+                case "Empleado por Comisión más sueldo Base":
+                    ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                    comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
+                    if (comisionstr.contains("%")) {
+                        comisionstr = comisionstr.replace("%", "");
+                    }
+                    comision = Double.parseDouble(comisionstr)/100;
+                    double base = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Salario base del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
+                    return empleados.set(pos, new EmpleadoXComisionMasBase(base, ventasBrutas, comision, nombre, apellido, nss));
+            }
+        }
+        return null;
+    }
+
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-//
-//        EmpleadoAsalariado ea
-//                = new EmpleadoAsalariado("John", "Smith", "111-11-1111", 800.00);
-//
-//        EmpleadoXhora eh
-//                = new EmpleadoXhora(16.75, 40, "Karen", "Price", "222-22-2222");
-//
-//        EmpleadoXComision ec
-//                = new EmpleadoXComision(10000, .06, "Sue", "Jones", "333-33-3333");
-//
-//        EmpleadoXComisionMasBase ecmb
-//                = new EmpleadoXComisionMasBase(300, 5000, .04, "Bob", "Lewis", "444-44-4444");
+
         Nomina.cargar();
         int opt;
         do {
             opt = Integer.parseInt(JOptionPane.showInputDialog("0.- SALIR.\n1.- "
-                    + "Ingresa Nuevo.\n2.- Modificar.\n3.- Eliminar.\n4.- Listar."));
+                    + "Ingresa Nuevo.\n2.- Modificar.\n3.- Eliminar.\n4.- Listar.\n5.- Cambiar tipo de Empleado."));
             switch (opt) {
                 case 1:
-                    String tipos[] = {"Empleado Asalareado", "Empleado por Horas", "Empleado por Comisión", "Empleado por Comisión más sueldo Base"};
-                    String nombre = JOptionPane.showInputDialog("Ingrese el Nombre del Empleado");
-                    String apellido = JOptionPane.showInputDialog("Ingrese el Apellido del Empleado");
-                    String nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
-                    String select = ((String) JOptionPane.showInputDialog(null, "<<SELECCIONE EL TIPO DE EMPLEADO>>", "Tipo de Empleado", JOptionPane.QUESTION_MESSAGE, null, tipos, tipos[0]));
-                    switch (select) {
-                        case "Empleado Asalareado":
-                            double salario = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Sueldo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
-                            empleados.add(new EmpleadoAsalariado(nombre, apellido, nss, salario));
-                            break;
-                        case "Empleado por Horas":
-                            double valorHora = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Valor de la Hora de trabajo del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
-                            double horasTrabajadas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Número de Horas que el Empleado ha Trabajado"));
-                            empleados.add(new EmpleadoXhora(valorHora, horasTrabajadas, nombre, apellido, nss));
-                            break;
-                        case "Empleado por Comisión":
-                            double ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
-                            String comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
-                            if (comisionstr.contains("%")) {
-                                comisionstr = comisionstr.replace("%", "");
-                            }
-                            double comision = Double.parseDouble(comisionstr);
-                            empleados.add(new EmpleadoXComision(ventasBrutas, comision, nombre, apellido, nss));
-                            break;
-                        case "Empleado por Comisión más sueldo Base":
-                            ventasBrutas = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el valor Bruto de las ventas del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
-                            comisionstr = JOptionPane.showInputDialog("Ingrese el porcentaje de comisión Empleado\nIngrese el numero del porcentaje EJ. 4%");
-                            if (comisionstr.contains("%")) {
-                                comisionstr = comisionstr.replace("%", "");
-                            }
-                            comision = Double.parseDouble(comisionstr);
-                            double base = Double.parseDouble(JOptionPane.showInputDialog("Ingrese el Salario base del Empleado\nSi tiene decimales favor use . (punto) no , (coma)"));
-                            empleados.add(new EmpleadoXComisionMasBase(base, ventasBrutas, comision, nombre, apellido, nss));
-                            break;
-                    }
+                    Nomina.nuevo();
                     break;
                 case 2:
+                    Nomina.cargarEditar();
                     break;
                 case 3:
-                    nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
-                    for (Empleado emp : empleados) {
-                        if (emp.getNumeroSeguroSocial().equals(nss)) {
-                            empleados.remove(emp);
+                    String nss = JOptionPane.showInputDialog("Ingrese el Número de Seguro Social del Empleado");
+                    for (int i = 0; i < empleados.size(); i++) {
+                        if (empleados.get(i).getNumeroSeguroSocial().equals(nss)) {
+                            empleados.remove(i);
+                            break;
                         }
                     }
                     break;
@@ -212,6 +419,9 @@ public class Nomina {
                         out += emp + "\nganancias: " + emp.ganancias() + "\n";
                     }
                     JOptionPane.showMessageDialog(null, out);
+                    break;
+                case 5:
+                    Nomina.editar();
                     break;
                 case 0:
                     Nomina.archivo();
@@ -226,34 +436,7 @@ public class Nomina {
             System.out.printf("%n%s%n%s: $%,.2f%n%n",
                     emp, "ganancias", emp.ganancias());
         }
-//        System.out.printf("%s%n%s: $%,.2f%n%n",
-//                eh, "ganancias", eh.ganancias());
-//        System.out.printf("%s%n%s: $%,.2f%n%n",
-//                ec, "ganancias", ec.ganancias());
-//        System.out.printf("%s%n%s: $%,.2f%n%n",
-//                ecmb,
-//                "ganancias", ecmb.ganancias());
-//
-//        Empleado[] empleados = new Empleado[4];
-//        // inicializar areglo de Empleados
-//        empleados[0] = ea;
-//        empleados[1] = eh;
-//        empleados[2] = ec;
-//
-//        empleados[3] = ecmb;
-//        System.out.printf("Empleados procesados ​​polimórficamente:%n%n");
-//        for (Empleado empleadoActual : empleados) {
-//            System.out.println(empleadoActual); // invokes toString
-//            if (empleadoActual instanceof EmpleadoXComisionMasBase) {
-//                EmpleadoXComisionMasBase employee = (EmpleadoXComisionMasBase) empleadoActual;
-//                employee.setSalarioBase(1.10 * employee.getSalarioBase());
-//                System.out.printf(
-//                        "nuevo salario base con 10%% el aumento es: $%,.2f%n",
-//                        employee.getSalarioBase());
-//            } // end if
-//            System.out.printf("ganancia $%,.2f%n%n", empleadoActual.ganancias());
-//        } // end for 
-// obtener el nombre de tipo de cada objeto en la matriz de empleados
+
         for (int j = 0; j < empleados.size(); j++) {
             System.out.printf("El Empleado %d es un %s%n", j,
                     empleados.get(j).getClass().getName());
